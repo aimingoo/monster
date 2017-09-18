@@ -18,7 +18,7 @@ Full or incremental static site generator for Ghost.
 
 ```bash
 # Pull your xxxx.github.io
-> git clone https://github.io/xxxx/xxxx.github.io
+> git clone https://github.com/xxxx/xxxx.github.io
 ...
 
 # Initialization as work directory
