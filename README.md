@@ -1,6 +1,6 @@
 # Monster
 
-full once upon or incremental static site generator for Ghost.
+Full or incremental static site generator for Ghost.
 
 # Install
 
@@ -17,6 +17,12 @@ full once upon or incremental static site generator for Ghost.
 **Init work directory**
 
 ```bash
+# Pull your xxxx.github.io
+> git clone https://github.io/xxxx/xxxx.github.io
+...
+
+# Initialization as work directory
+> cd xxxx.github.io
 > monster --init
 Your Github name or domain : xxxx
 ...
