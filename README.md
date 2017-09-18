@@ -6,6 +6,10 @@ full once upon or incremental static site generator for Ghost.
 
 ```bash
 > brew install aimingoo/repo/monster
+
+# OR, manual install with git
+> git clone https://github.com/aimingoo/monster
+> install monster/libexec/monster.sh /usr/local/bin/monster
 ```
 
 # Usage
