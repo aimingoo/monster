@@ -101,6 +101,6 @@ More:
 # History
 
 ```
-2017.09.19	v1.0.1 released, fix minor bugs
+2017.09.19	v1.0.2 released, fix minor bugs
 2017.09.17	v1.0.0 released
 ```
