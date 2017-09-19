@@ -105,9 +105,11 @@ if [[ -f "./.monster" ]]; then
 	source ./.monster
 fi
 
-## proess arguments
+## proess argument '--DB'
 for param; do
-	declare $(echo ${param%%=*} | tr '[a-z]' '[A-Z]' | sed 's/^--*//; s/-/_/g')=$(expr "$param" : '.*=\(.*\)' \| true)
+	if [[ "$param" =~ ^--*[dD][bB]= ]]; then
+		declare DB=$(expr "$param" : '.*=\(.*\)' \| true)
+	fi
 done
 
 ## check configures
@@ -173,6 +175,11 @@ for param; do
 			exit
 		fi
 	fi
+done
+
+## proess arguments
+for param; do
+	declare $(echo ${param%%=*} | tr '[a-z]' '[A-Z]' | sed 's/^--*//; s/-/_/g')=$(expr "$param" : '.*=\(.*\)' \| true)
 done
 
 ## import saved data
