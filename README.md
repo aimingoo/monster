@@ -2,6 +2,19 @@
 
 Full or incremental static site generator for Ghost.
 
+# Features
+
+- Full static site generator for Ghost and other blog or sites
+- Incremental generator for new or updated blogs on Ghost
+- Preview at localhost with static files
+- Support GitHub Pages(host on github.io), and standalone domain
+- Integration git deploy on github.io or your standalone domain
+- Single client, multi site alone configuration
+- Support simplify url(very short slug as title) for Ghost
+- Support multi-author for Ghost
+- Some expert features for git-comments(use github issues as blog comments, ex: gitment)
+
+
 # Install
 
 ```bash
@@ -28,10 +41,10 @@ Your Github name or domain : xxxx
 ...
 ```
 
-
 **Generate full site**
 
 ```bash
+# Launch your Ghost site first(default on localhost:2368)
 > monster --generate
 ```
 
