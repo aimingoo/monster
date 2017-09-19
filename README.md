@@ -44,7 +44,7 @@ Your Github name or domain : xxxx
 **Generate full site**
 
 ```bash
-# Launch your Ghost site first(default on localhost:2368)
+# Launch your Ghost site first(default on localhost:2368), and
 > monster --generate
 ```
 
