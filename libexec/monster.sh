@@ -10,7 +10,7 @@
 #- Default behavior:
 #-	> monster generate --generate
 #- Dependencies: buster, wget, git, sqlite3, jq, curl, sum
-#- Version: 1.0.0
+#- Version: 1.0.1
 ##################################################################################################
 
 UPDATE_SITE=false

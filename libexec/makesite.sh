@@ -13,7 +13,7 @@
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
 #- Dependencies: buster, wget, git
-#- Version: 1.0.0
+#- Version: 1.0.1
 ##################################################################################################
 
 ## default setting
