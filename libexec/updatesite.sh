@@ -32,11 +32,12 @@ SHORT_PATH=true
 RESET_DOMAIN=true
 
 # pick more files...
-PICK_STATIC_TAGCLOUD=true
-PICK_STATIC_PROFILE=true
-PICK_ARCHIVES_POST=true
+PICK_STATIC_TAGCLOUD=false
+PICK_STATIC_PROFILE=false
+PICK_ARCHIVES_POST=false
 PICK_ROBOTS_TXT=true
 PICK_SITEMAP=true
+FORCE=false
 
 GITHUB_USER=""
 GITHUB_TOKEN=""
@@ -309,7 +310,7 @@ if ! $DEPLOY_ONLY; then
 	done < <(sqlite3 "${DB}" "select slug from users ${where_user}")
 
 	## pick all index pages
-	if $create_new; then
+	if $create_new || $FORCE; then
 		echo
 		echo -e "\033[0;32mRefresh index pages ...\033[0m"
 
@@ -340,13 +341,13 @@ if ! $DEPLOY_ONLY; then
 
 		# index and home pages
 		wget_static_deep --accept-regex='/page/[^/]*/$' "${SITE}/"
+
+		## other static pages
+		wget_static "${SITE}/favicon.ico" >/dev/null
+		wget_static "${SITE}/rss/index.rss" >/dev/null
 	else
 		echo '> Skiped.'
 	fi
-
-	## pick other static pages
-	wget_static "${SITE}/favicon.ico"
-	wget_static "${SITE}/rss/index.rss"
 
 	## quick to short path
 	if $SHORT_PATH && [ -d "${STATIC_PATH}" ]; then
@@ -369,9 +370,8 @@ fi
 
 ## and, try call makesite
 if $DEPLOY_NOW || $RESET_DOMAIN; then
-	# --reset-domain=false --short-path=false
-	bash makesite.sh --site="${SITE}" --domain="${DOMAIN:-${GITHUB_USER}.github.io}" --static-path="${STATIC_PATH}" \
-		--generate=false --reset-domain="${RESET_DOMAIN}" --short-path=false --deploy-now="${DEPLOY_NOW}" 
+	bash "$(dirname $0)/makesite.sh" --site="${SITE}" --domain="${DOMAIN:-${GITHUB_USER}.github.io}" --static-path="${STATIC_PATH}" \
+		--generate=false --pick-sitemap=false --reset-domain="${RESET_DOMAIN}" --short-path=false --deploy-now="${DEPLOY_NOW}"
 
 	if $DEPLOY_NOW; then
 		## init again, '.sqlitedb' saved

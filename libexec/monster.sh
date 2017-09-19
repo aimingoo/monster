@@ -57,14 +57,14 @@ function init_read_configure {
 		if [ -z "${IN_DB}" -o -f "${IN_DB}" ]; then break; fi
 	done
 
-	read -p "Your Ghost site addr, or Enter set default [localhost:2368]: " IN_SITE
+	read -p "Your Ghost site, or Enter set default [localhost:2368]: " IN_SITE
 	if [[ -z "${IN_SITE}" ]]; then
 		IN_SITE="http://localhost:2368"
 	else
 		IN_SITE=${IN_SITE%/}
 		if [[ ${IN_SITE} =~ ^:[0-9]+$ ]]; then
 			IN_SITE="http://localhost${IN_SITE}"
-		elif [[ ! ${IN_SITE} =~ ^https*//: ]]; then
+		elif [[ ! ${IN_SITE} =~ ^https*:// ]]; then
 			IN_SITE="http://${IN_SITE}"
 		fi
 	fi
@@ -100,15 +100,20 @@ PROTOCOL="https"
 
 ## Default behavior
 # GENERATE_INFO=false
-# RESET_DOMAIN=false
+# SYNC_REMOVED=false
+# RESET_DOMAIN=true
 # SHORT_PATH=false
 
 ## Pick more files
 # PICK_STATIC_TAGCLOUD=false
 # PICK_STATIC_PROFILE=false
 # PICK_ARCHIVES_POST=false
-# PICK_ROBOTS_TXT=false
-# PICK_SITEMAP=false
+# PICK_ROBOTS_TXT=true
+# PICK_SITEMAP=true
+# FORCE=false
+
+## Other override
+# IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
 _INITCONFIG
 	echo "File .monster saved."
 
@@ -197,9 +202,9 @@ popd > /dev/null
 
 ## other main commands
 if $UPDATE_SITE; then
-	bash "$SCRIPTPATH/../libexec/updatesite.sh" $@
+	bash "${SCRIPTPATH}/../libexec/updatesite.sh" $@
 elif $GENERATE_SITE; then
-	bash "$SCRIPTPATH/../libexec/makesite.sh" $@
+	bash "${SCRIPTPATH}/../libexec/makesite.sh" $@
 fi
 
 ## extra parament parser

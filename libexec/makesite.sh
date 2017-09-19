@@ -3,7 +3,7 @@
 ##################################################################################################
 #- Monster module - makesite.sh
 #- Usage:
-#-	> bash makesite.sh [--generate --reset-domain --short-path --deploy-now]
+#-	> bash makesite.sh [--generate --pick-sitemap --reset-domain --short-path --deploy-now]
 #-	> bash makesite.sh [--help | --version]
 #- Example:
 #-	> bash makesite.sh --reset-domain=false
@@ -22,6 +22,7 @@ STATIC_PATH="./static"
 DOMAIN=""
 GENERATE=false
 GENERATE_INFO=false
+PICK_SITEMAP=true
 RESET_DOMAIN=true
 SHORT_PATH=false
 DEPLOY_NOW=false
@@ -55,6 +56,8 @@ if ! dependency buster wget; then
 fi
 
 ## load monster configure
+#	- with other variant override
+IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
 if [[ -f "./.monster" ]]; then
 	source ./.monster
 fi
@@ -73,7 +76,6 @@ fi
 
 SITEADDR="${SITE##*://}"
 SITEREGX="\\(https*://\\)${SITEADDR}"
-IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
 
 ## call buster to generate site
 if [[ "$GENERATE" == "true" ]]; then
@@ -84,30 +86,32 @@ if [[ "$GENERATE" == "true" ]]; then
 	# generate static site
 	echo -e "\033[0;32mGenerate your static site...\033[0m"
 	if [[ "$GENERATE_INFO" == "true" ]]; then
-		buster generate --dir="${STATIC_PATH}"
+		buster generate --dir="${STATIC_PATH}" --domain="${SITE}"
 	else
-		buster generate --dir="${STATIC_PATH}" 2>&1 | tee monster.log | cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'; printf "\n"
+		buster generate --dir="${STATIC_PATH}" --domain="${SITE}" 2>&1 | tee monster.log | cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'; printf "\n"
 		cat monster.log |\
 			grep -Eie '^(FINISHED|Total wall clock time|Downloaded:|Converted links in|--\d+-\d+-\d+ )|failed:|error[ 0-9:]*' |\
 			grep -B1 -Eve '^(--|FINISHED)' | grep --color -Eie 'failed:|error[ 0-9:]*|$'
 	fi
 fi
 
-if [[ ! -d "${STATIC_PATH}" ]]; then
+# Try copy sitemap files
+if [[ -d "${STATIC_PATH}" ]]; then
+	if [[ "$PICK_SITEMAP" == "true" ]]; then
+		echo -e "\033[0;32mCopy sitemap files...\033[0m"
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xsl
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xml
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-pages.xml
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-posts.xml
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-authors.xml
+		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-tags.xml
+	fi
+else
 	echo "Abort because have not '${STATIC_PATH}' directory."
 	exit 1
 fi
 
-if [[ "$RESET_DOMAIN" == "true" ]]; then
-	# Copy sitemap files
-	echo -e "\033[0;32mCopy sitemap files...\033[0m"
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xsl
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xml
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-pages.xml
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-posts.xml
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-authors.xml
-	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-tags.xml
-
+if [[ "$SITEADDR" != "$DOMAIN" ]] && [[ "$RESET_DOMAIN" == "true" ]]; then
 	# fix versions for assets file
 	echo -e "\033[0;32mPatching versions...\033[0m"
 	if [[ -d "${STATIC_PATH}/assets" ]]; then
@@ -155,12 +159,14 @@ if [[ "$RESET_DOMAIN" == "true" ]]; then
 fi
 
 # recheck
-INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
-if [[ -n "$INVALID" ]]; then
-	echo "Include localhost hyperlink in next files:"
-	echo "$INVALID" | xargs -n1 echo "  - "
-	echo "Abort."
-	exit 2
+if [[ "$SITEADDR" != "$DOMAIN" ]]; then
+	INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
+	if [[ -n "$INVALID" ]]; then
+		echo "Include hyperlink point to <$SITEADDR> in next files:"
+		echo "$INVALID" | xargs -n1 echo "  - "
+		echo "Abort."
+		exit 2
+	fi
 fi
 
 # folder to static file
