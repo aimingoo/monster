@@ -10,7 +10,7 @@
 #- Default behavior:
 #-	> monster generate --generate
 #- Dependencies: buster, wget, git, sqlite3, jq, curl, sum
-#- Version: 1.0.2
+#- Version: 1.0.3
 ##################################################################################################
 
 UPDATE_SITE=false
@@ -101,7 +101,9 @@ PROTOCOL="https"
 ## Default behavior
 # GENERATE_INFO=false
 # SYNC_REMOVED=false
+# PATCH_VERSION=true
 # RESET_DOMAIN=true
+# CHECK_STATIC=true
 # SHORT_PATH=false
 
 ## Pick more files
@@ -114,6 +116,7 @@ PROTOCOL="https"
 
 ## Other override
 # IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
+# VERDIR_LIST=("assets" "shared" "public")
 _INITCONFIG
 	echo "File .monster saved."
 
@@ -162,7 +165,7 @@ if $PREVIEW_SITE; then
 	if [[ ! -d "${STATIC_PATH}" ]]; then
 		echo "Where is static directory ${STATIC_PATH}?"
 	else
-		echo "Serving HTTP on 0.0.0.0 port ${1:-8000} ..."
+		echo "Serving HTTP on localhost port ${1:-8000} ..."
 		cd ${STATIC_PATH}
 		${PYTHON} -m SimpleHTTPServer $@ >/dev/null 2>&1
 		cd -

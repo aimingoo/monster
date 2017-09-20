@@ -13,7 +13,7 @@
 #-	- paraments for "--sync-removed":
 #-		--email=xxx     : set author's email of his account
 #- Dependencies: sqlite3, jq, wget, curl, sum
-#- Version: 1.0.2
+#- Version: 1.0.3
 ##################################################################################################
 
 SITE="http://localhost:2368"

@@ -3,17 +3,18 @@
 ##################################################################################################
 #- Monster module - makesite.sh
 #- Usage:
-#-	> bash makesite.sh [--generate --pick-sitemap --reset-domain --short-path --deploy-now]
+#-	> bash makesite.sh [--generate --reset-domain --short-path --deploy-now]
+#-	> bash makesite.sh [--pick-sitemap=false --patch-version=false check-static=false]
 #-	> bash makesite.sh [--help | --version]
 #- Example:
-#-	> bash makesite.sh --reset-domain=false
+#-	> bash makesite.sh --generate --reset-domain=false --pick-sitemap=false
 #- Note:
 #-  > param switch: --paramName=paramValue, default paramValue is true
 #-	- Have a '--domain' parament to set you domain address
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
 #- Dependencies: buster, wget, git
-#- Version: 1.0.1
+#- Version: 1.0.3
 ##################################################################################################
 
 ## default setting
@@ -22,10 +23,12 @@ STATIC_PATH="./static"
 DOMAIN=""
 GENERATE=false
 GENERATE_INFO=false
-PICK_SITEMAP=true
 RESET_DOMAIN=true
 SHORT_PATH=false
 DEPLOY_NOW=false
+PICK_SITEMAP=true
+PATCH_VERSION=true
+CHECK_STATIC=true
 
 ## check dependencies
 # - https://gist.github.com/terencewestphal/8b9101e86928c0054a518de262b80a77
@@ -58,6 +61,7 @@ fi
 ## load monster configure
 #	- with other variant override
 IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
+VERDIR_LIST=("assets" "shared" "public")
 if [[ -f "./.monster" ]]; then
 	source ./.monster
 fi
@@ -106,21 +110,22 @@ if [[ -d "${STATIC_PATH}" ]]; then
 		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-authors.xml
 		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-tags.xml
 	fi
+
+	# fix versions for assets file
+	if [[ "$PATCH_VERSION" == "true" ]]; then
+		echo -e "\033[0;32mPatching versions...\033[0m"
+		for VERDIR in ${VERDIR_LIST[@]}; do
+			if [[ -d "${STATIC_PATH}/${VERDIR}" ]]; then
+				find "${STATIC_PATH}/${VERDIR}" -name '*\?*' -type f -exec sh -c "echo '{}' | sed 's|\?.*$||' | xargs -I[] mv '{}' '[]'" \;
+			fi
+		done
+	fi
 else
 	echo "Abort because have not '${STATIC_PATH}' directory."
 	exit 1
 fi
 
-if [[ "$SITEADDR" != "$DOMAIN" ]] && [[ "$RESET_DOMAIN" == "true" ]]; then
-	# fix versions for assets file
-	echo -e "\033[0;32mPatching versions...\033[0m"
-	if [[ -d "${STATIC_PATH}/assets" ]]; then
-		find "${STATIC_PATH}/assets" -name '*\?*' -type f -exec sh -c "echo '{}' | sed 's|\?.*$||' | xargs -I[] mv '{}' '[]'" \;
-	fi
-	if [[ -d "${STATIC_PATH}/shared" ]]; then
-		find "${STATIC_PATH}/shared" -name '*\?*' -type f -exec sh -c "echo '{}' | sed 's|\?.*$||' | xargs -I[] mv '{}' '[]'" \;
-	fi
-
+if [[ "$RESET_DOMAIN" == "true" ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 	# remove amp/canonical/editor links
 	find "${STATIC_PATH}" -name "*.html" -type f -exec sed -i '' -E \
 '/<link rel="(canonical|amphtml)"/d;'\
@@ -159,7 +164,7 @@ if [[ "$SITEADDR" != "$DOMAIN" ]] && [[ "$RESET_DOMAIN" == "true" ]]; then
 fi
 
 # recheck
-if [[ "$SITEADDR" != "$DOMAIN" ]]; then
+if [[ "$CHECK_STATIC" == 'true' ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 	INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
 	if [[ -n "$INVALID" ]]; then
 		echo "Include hyperlink point to <$SITEADDR> in next files:"
