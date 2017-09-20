@@ -4,7 +4,7 @@
 #- Monster module - makesite.sh
 #- Usage:
 #-	> bash makesite.sh [--generate --reset-domain --short-path --deploy-now]
-#-	> bash makesite.sh [--pick-sitemap=false --patch-version=false check-static=false]
+#-	> bash makesite.sh [--pick-sitemap=false --patch-version=false --check-static=false]
 #-	> bash makesite.sh [--help | --version]
 #- Example:
 #-	> bash makesite.sh --generate --reset-domain=false --pick-sitemap=false
