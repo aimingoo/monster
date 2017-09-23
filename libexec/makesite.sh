@@ -14,7 +14,7 @@
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
 #- Dependencies: buster, wget, git
-#- Version: 1.0.3
+#- Version: 1.0.4
 ##################################################################################################
 
 ## default setting
@@ -23,12 +23,12 @@ STATIC_PATH="./static"
 DOMAIN=""
 GENERATE=false
 GENERATE_INFO=false
-RESET_DOMAIN=true
-SHORT_PATH=false
-DEPLOY_NOW=false
 PICK_SITEMAP=true
 PATCH_VERSION=true
+RESET_DOMAIN=true
+SHORT_PATH=false
 CHECK_STATIC=true
+DEPLOY_NOW=false
 
 ## check dependencies
 # - https://gist.github.com/terencewestphal/8b9101e86928c0054a518de262b80a77
@@ -60,7 +60,7 @@ fi
 
 ## load monster configure
 #	- with other variant override
-IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
+IGNORE_LIST=("archives-post" "about" "author" "page" "rss" "tag" "assets" "content" "shared")
 VERDIR_LIST=("assets" "shared" "public")
 if [[ -f "./.monster" ]]; then
 	source ./.monster
@@ -76,6 +76,13 @@ if [[ -z "$DOMAIN" ]]; then
 	echo "Configure file .monster lost, or pass --DOMAIN parament please."
 	echo "Or run 'monster --init' first."
 	exit
+fi
+
+## sed -i, compatible macosx and gnu
+if sed --version 2>&1 | grep -q 'illegal option'; then
+	sed_inplace="sed -i ''"
+else
+	sed_inplace="sed -i'' "
 fi
 
 SITEADDR="${SITE##*://}"
@@ -99,42 +106,44 @@ if [[ "$GENERATE" == "true" ]]; then
 	fi
 fi
 
-# Try copy sitemap files
-if [[ -d "${STATIC_PATH}" ]]; then
-	if [[ "$PICK_SITEMAP" == "true" ]]; then
-		echo -e "\033[0;32mCopy sitemap files...\033[0m"
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xsl
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xml
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-pages.xml
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-posts.xml
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-authors.xml
-		wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-tags.xml
-	fi
-
-	# fix versions for assets file
-	if [[ "$PATCH_VERSION" == "true" ]]; then
-		echo -e "\033[0;32mPatching versions...\033[0m"
-		for VERDIR in ${VERDIR_LIST[@]}; do
-			if [[ -d "${STATIC_PATH}/${VERDIR}" ]]; then
-				find "${STATIC_PATH}/${VERDIR}" -name '*\?*' -type f -exec sh -c "echo '{}' | sed 's|\?.*$||' | xargs -I[] mv '{}' '[]'" \;
-			fi
-		done
-	fi
-else
+# directory exist?
+if [[ ! -d "${STATIC_PATH}" ]]; then
 	echo "Abort because have not '${STATIC_PATH}' directory."
 	exit 1
 fi
 
+# try copy sitemap files
+if [[ "$PICK_SITEMAP" == "true" ]]; then
+	echo -e "\033[0;32mCopy sitemap files...\033[0m"
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xsl
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap.xml
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-pages.xml
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-posts.xml
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-authors.xml
+	wget -N -q --directory-prefix "${STATIC_PATH}" ${SITE}/sitemap-tags.xml
+fi
+
+# fix versions for assets file
+if [[ "$PATCH_VERSION" == "true" ]]; then
+	echo -e "\033[0;32mPatching versions...\033[0m"
+	for VERDIR in ${VERDIR_LIST[@]}; do
+		if [[ -d "${STATIC_PATH}/${VERDIR}" ]]; then
+			find "${STATIC_PATH}/${VERDIR}" -name '*\?*' -type f -exec sh -c "echo '{}' | sed 's|\?.*$||' | xargs -I[] mv '{}' '[]'" \;
+		fi
+	done
+fi
+
+# reset domain
 if [[ "$RESET_DOMAIN" == "true" ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 	# remove amp/canonical/editor links
-	find "${STATIC_PATH}" -name "*.html" -type f -exec sed -i '' -E \
+	find "${STATIC_PATH}" -name "*.html" -type f -exec $sed_inplace -E \
 '/<link rel="(canonical|amphtml)"/d;'\
 's/<a href="[^"]*\/ghost\/editor\/[^>]*>[^>]*>//g'\
 	'{}' \;
 
 	# fix domain and other issues
 	echo -e "\033[0;32mPatching domain and other issues...\033[0m"
-	find "${STATIC_PATH}" -name "*.html" -type f -exec sed -i '' \
+	find "${STATIC_PATH}" -name "*.html" -type f -exec $sed_inplace \
 's|u='${SITEREGX}'|u=\1'${DOMAIN}'|g;'\
 's|url='${SITEREGX}'|url=\1'${DOMAIN}'|g;'\
 's|href="'${SITEREGX}'|href="\1'${DOMAIN}'|g;'\
@@ -142,36 +151,25 @@ if [[ "$RESET_DOMAIN" == "true" ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 's|link>'${SITEREGX}'|link>\1'${DOMAIN}'|g;'\
 's|'${SITEREGX}'|\1'${DOMAIN}'|g'\
 	'{}' \;
-	find "${STATIC_PATH}" -name "*.xsl" -type f -exec sed -i '' 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
-	find "${STATIC_PATH}" -name "*.xml" -type f -exec sed -i '' \
+	find "${STATIC_PATH}" -name "*.xsl" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
+	find "${STATIC_PATH}" -name "*.xml" -type f -exec $sed_inplace \
 's|href="//'${SITEADDR}'|href=//"'${DOMAIN}'|g;'\
 's|loc>'${SITEREGX}'|loc>\1'${DOMAIN}'|g'\
 	'{}' \;
 
 	if [[ -d "${STATIC_PATH}/shared" ]]; then
-		find "${STATIC_PATH}/shared" -name "*.js" -type f -exec sed -i '' 's|//'${SITEADDR}'|//'${DOMAIN}'|g' '{}' \;
+		find "${STATIC_PATH}/shared" -name "*.js" -type f -exec $sed_inplace 's|//'${SITEADDR}'|//'${DOMAIN}'|g' '{}' \;
 	fi
 	if [[ -d "${STATIC_PATH}/rss" ]]; then
-		find "${STATIC_PATH}/rss" -name "*.rss" -type f -exec sed -i '' 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
+		find "${STATIC_PATH}/rss" -name "*.rss" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
 	fi
 	if [[ -f "${STATIC_PATH}/robots.txt" ]]; then
-		sed -i '' 's|'${SITEREGX}'|\1'${DOMAIN}'|g' "${STATIC_PATH}/robots.txt"
+		$sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' "${STATIC_PATH}/robots.txt"
 	fi
-	find "${STATIC_PATH}" -name "tag-cloud" -type f -exec sed -i '' 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
+	find "${STATIC_PATH}" -name "tag-cloud" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
 
 	echo -e "\033[0;32mRemove .1 files ...\033[0m"
 	find "${STATIC_PATH}" -type f -depth 1 -name '*.?' | grep '[0-9]$' | xargs -L1 -I{} rm '{}'
-fi
-
-# recheck
-if [[ "$CHECK_STATIC" == 'true' ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
-	INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
-	if [[ -n "$INVALID" ]]; then
-		echo "Include hyperlink point to <$SITEADDR> in next files:"
-		echo "$INVALID" | xargs -n1 echo "  - "
-		echo "Abort."
-		exit 2
-	fi
 fi
 
 # folder to static file
@@ -180,7 +178,7 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 	total=$(find "${STATIC_PATH}" -type d -depth 1 | wc -l | sed 's/^ *//g')
 	current=0
 	declare -a all_posts
-	find "${STATIC_PATH}" -type d -depth 1 | while read -r name; do
+	while read -r name; do
 		let current+=1
 		if [[ -f "$name/index.html" ]]; then
 			## HRADCODE BEGIN
@@ -196,20 +194,31 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 			##	1) "./index.html" or "index.html" => "${short_name}.html"
 			##	2) "../" ==> "index.html"
 			##	3) "../others ==> "others
-			sed -i '' -E "s/(\"|')(\\.\\/){0,1}index\\.html/\1${short_name}.html/g; s/(\"|')\\.\\.\\/(\"|')/\1index.html\2/g; s/(\"|')\\.\\.\\//\\1/g" "${name}.html"
+			$sed_inplace -E "s/(\"|')(\\.\\/){0,1}index\\.html/\1${short_name}.html/g; s/(\"|')\\.\\.\\/(\"|')/\1index.html\2/g; s/(\"|')\\.\\.\\//\\1/g" "${name}.html"
 			## replace $short_name in all .html files
 			# 	- find "${STATIC_PATH}" -name '*.html' -type f -print0 | xargs -n1 -I{} -0 \
-			# 	-	sed -i '' -E "s#([\"'/]$short_name)/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\4#g" '{}'
+			# 	-	$sed_inplace -E "s#([\"'/]$short_name)/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\4#g" '{}'
 			all_posts+=("${short_name}")
 		fi
-	done
+	done < <(find "${STATIC_PATH}" -type d -depth 1)
 
 	function join { local IFS="$1"; shift; echo "$*"; }
 	posts=$(join '|' "${all_posts[@]}")
 	find "${STATIC_PATH}" -name '*.html' -type f -print0 | xargs -n1 -I{} -0 \
-		sed -i '' -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}'
+		$sed_inplace -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}'
 
 	printf "\n"
+fi
+
+# check static directory
+if [[ "$CHECK_STATIC" == 'true' ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
+	INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
+	if [[ -n "$INVALID" ]]; then
+		echo "Include hyperlink point to <$SITEADDR> in next files:"
+		echo "$INVALID" | xargs -n1 echo "  - "
+		echo "Abort."
+		exit 2
+	fi
 fi
 
 # and deploy or nothing

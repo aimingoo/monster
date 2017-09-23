@@ -13,7 +13,7 @@
 #-	- paraments for "--sync-removed":
 #-		--email=xxx     : set author's email of his account
 #- Dependencies: sqlite3, jq, wget, curl, sum
-#- Version: 1.0.3
+#- Version: 1.0.4
 ##################################################################################################
 
 SITE="http://localhost:2368"
@@ -43,6 +43,8 @@ GITHUB_USER=""
 GITHUB_TOKEN=""
 GITHUB_APIRATE=1
 GITHUB_PAGESIZE=100
+
+ACCEPT_LIST=("assets" "content" "rss" "shared")
 
 ## check dependencies
 # - https://gist.github.com/terencewestphal/8b9101e86928c0054a518de262b80a77
@@ -119,6 +121,13 @@ if [[ -z "$DB" ]]; then
 	exit
 fi
 
+## sed -i, compatible macosx and gnu
+if sed --version 2>&1 | grep -q 'illegal option'; then
+	sed_inplace="sed -i ''"
+else
+	sed_inplace="sed -i'' "
+fi
+
 ## direct commands
 ##	- variant used: $DB, $GITHUB_TOKEN, $GITHUB_USER, $GITHUB_APIRATE, $GITHUB_PAGESIZE
 for param; do
@@ -129,10 +138,12 @@ for param; do
 		LAST_NEW=`sqlite3 "${DB}" "select slug from posts ${where_post} order by created_at desc limit 1"`
 		LAST_TAG=(`sqlite3 "${DB}" -separator ' ' 'select id, count(*) from posts_tags order by id desc limit 1'`)
 		echo -e "update_id=\"${LAST_ID}\"\nupdate_at=\"${LAST_AT}\"\nlast_create_id=\"${LAST_NEW}\"\nlast_tag=(${LAST_TAG[@]})\nlast_checksums=($2)" > .sqlitedb
+		echo "File .sqlitedb saved."
 		exit
 	fi
 	if [[ "$param" == "--sync-slug" ]]; then
 		sqlite3 "${DB}" 'update posts set slug = author_id || "-" || id'
+		echo "Done."
 		exit
 	fi
 	if [[ "$param" == "--sync-issue" ]]; then
@@ -223,13 +234,14 @@ if $DEPLOY_ONLY; then
 	fi
 else
 	echo -e "\033[0;32mPick updated or new files ...\033[0m"
+	rx_acceptlist=$(join "|" "${ACCEPT_LIST[@]}")
 	where_post="where status=\"published\" and visibility=\"public\" and updated_at > \"${update_at}\""
 	read -a update_ids < <(sqlite3 "${DB}" "select slug from posts ${where_post} order by updated_at" | xargs)
 	for (( i=0; i<${#update_ids[@]}; i++ )); do
 		## pick all update files and all asset
 		##	ignore '--convert-links'?
 		if no_paged "${update_ids[$i]}"; then ## auto set filename
-			wget_static_deep --accept-regex='/(assets|content|rss|shared)/' "${SITE}/${update_ids[$i]}"
+			wget_static_deep --accept-regex="/(${rx_acceptlist})/" "${SITE}/${update_ids[$i]}"
 		else  ## force save as without deep
 			wget_static -O "$(force_paged_filename ${update_ids[$i]})" "${SITE}/${update_ids[$i]}"
 		fi
@@ -365,7 +377,7 @@ if ! $DEPLOY_ONLY; then
 		where_post="where status=\"published\" and visibility=\"public\" and page=0"
 		posts=$(join "|" $(sqlite3 "${DB}" "select slug from posts ${where_post}" | xargs))
 		find "${STATIC_PATH}" -name '*.html' -type f -exec printf '\r> %-73s' '{}' \;\
-			-exec sed -i '' -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}' +
+			-exec $sed_inplace -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}' +
 		printf "\n"
 	fi
 fi
