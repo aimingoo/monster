@@ -123,9 +123,9 @@ fi
 
 ## sed -i, compatible macosx and gnu
 if sed --version 2>&1 | grep -q 'illegal option'; then
-	sed_inplace="sed -i ''"
+	function sed_inplace_E { local INPLACE_FILE="$1"; shift; sed -i '' -Ee "$*" "$INPLACE_FILE"; }
 else
-	sed_inplace="sed -i'' "
+	function sed_inplace_E { local INPLACE_FILE="$1"; shift; sed -i'' -Ee "$*" "$INPLACE_FILE"; }
 fi
 
 ## direct commands
@@ -376,8 +376,10 @@ if ! $DEPLOY_ONLY; then
 		# total=$(sqlite3 "${DB}" "select count(*) from posts")
 		where_post="where status=\"published\" and visibility=\"public\" and page=0"
 		posts=$(join "|" $(sqlite3 "${DB}" "select slug from posts ${where_post}" | xargs))
-		find "${STATIC_PATH}" -name '*.html' -type f -exec printf '\r> %-73s' '{}' \;\
-			-exec $sed_inplace -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}' +
+		while read -r INPLACE_FILE; do
+			printf '\r> %-73s' "$INPLACE_FILE"
+			sed_inplace_E "$INPLACE_FILE" "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"
+		done < <(find "${STATIC_PATH}" -name '*.html' -type f)
 		printf "\n"
 	fi
 fi

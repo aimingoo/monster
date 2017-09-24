@@ -2,6 +2,27 @@
 
 Full or incremental static site generator for Ghost.
 
+
+Table of Contents
+=================
+
+* [Monster](#monster)
+* [Features](#features)
+* [Install](#install)
+* [Usage](#usage)
+* [Quick Help](#quick-help)
+* [Performance](#performance)
+* [Manual](#manual)
+    * [Base command format](#base-command-format)
+    * [Paraments for generate mode](#paraments-for-generate-mode)
+    * [Paraments for update mode](#paraments-for-update-mode)
+    * [Paraments for preview mode](#paraments-for-preview-mode)
+    * [Configuration items in \.monster](#configuration-items-in-monster)
+    * [About configuration file \.sqlitedb](#about-configuration-file-sqlitedb)
+* [History](#history)
+
+
+
 # Features
 
 - Full static site generator for Ghost and other blog or sites
@@ -98,6 +119,63 @@ More:
 
 # and
 > monster update --help
+```
+
+# Performance
+
+The test environment run at macbook pro 15-inch, 2.5 GHz Intel Core i7, 16 GB 1600 MHz DDR3, with Ghost localhost blog.
+
+Include 292 posts and some attachments and assets in this blog site, full site include 628 files(with 444 html pages), and total 87.1MB.
+
+Case one, full site generator in `generator` mode:
+
+```bash
+> time monster generate --generate --reset-domain --short-path
+...
+[283/292] Process ./static/1-99.htmlll
+Done.
+
+real	1m39.333s
+user	0m58.739s
+sys	0m17.515s
+```
+
+Case two, full site generator in `update` mode, double time compared to generate mode:
+
+```bash
+> time monster update
+...
+real	3m34.757s
+user	1m37.506s
+sys	0m59.065s
+```
+
+Case three, in `update` mode with one post updated. Bingo! 2s to donwload 49 files and refresh 3 files only:
+
+```bash
+> time monster update && find ./static -type f | echo -e "\nNew files: `wc -l`"
+Pick updated or new files ...
+> Downloaded: 49 files, 2.8M in 0.02s (153 MB/s)                           
+...
+
+real	0m1.881s
+user	0m1.045s
+sys	0m0.522s
+
+New files:       3
+```
+
+Case four, in `update` mode with one post created. will refresh index/tag/profile pages, total 74 files:
+
+```bash
+> time monster update && find ./static -type f | echo -e "\nNew files: `wc -l`"
+...
+
+real	0m16.052s
+user	0m9.005s
+sys	0m1.515s
+
+New files:       74
 ```
 
 
@@ -369,6 +447,7 @@ If the file lost or removed, then will `monster update` command will fetch all p
 # History
 
 ```
+2017.09.24	hotfix for GNU sed supported and performance test.
 2017.09.23	v1.0.4 released, GNU sed supported, and update manual.
 2017.09.20	v1.0.3 released
 2017.09.19	v1.0.2 released, fix minor bugs

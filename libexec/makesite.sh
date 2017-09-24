@@ -80,9 +80,15 @@ fi
 
 ## sed -i, compatible macosx and gnu
 if sed --version 2>&1 | grep -q 'illegal option'; then
-	sed_inplace="sed -i ''"
+	function sed_inplace { local INPLACE_FILE="$1"; shift; sed -i '' -e "$*" "$INPLACE_FILE"; }
+	function sed_inplace_E { local INPLACE_FILE="$1"; shift; sed -i '' -Ee "$*" "$INPLACE_FILE"; }
+	function sed_inplace_all { while read -r INPLACE_FILE; do sed -i '' -e "$*" "$INPLACE_FILE"; done }
+	function sed_inplace_all_E { while read -r INPLACE_FILE; do sed -i '' -Ee "$*" "$INPLACE_FILE"; done }
 else
-	sed_inplace="sed -i'' "
+	function sed_inplace { local INPLACE_FILE="$1"; shift; sed -i'' -e "$*" "$INPLACE_FILE"; }
+	function sed_inplace_E { local INPLACE_FILE="$1"; shift; sed -i'' -Ee "$*" "$INPLACE_FILE"; }
+	function sed_inplace_all { while read -r INPLACE_FILE; do sed -i'' -e "$*" "$INPLACE_FILE"; done }
+	function sed_inplace_all_E { while read -r INPLACE_FILE; do sed -i'' -Ee "$*" "$INPLACE_FILE"; done }
 fi
 
 SITEADDR="${SITE##*://}"
@@ -136,37 +142,44 @@ fi
 # reset domain
 if [[ "$RESET_DOMAIN" == "true" ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 	# remove amp/canonical/editor links
-	find "${STATIC_PATH}" -name "*.html" -type f -exec $sed_inplace -E \
+	sed_inplace_all_E \
 '/<link rel="(canonical|amphtml)"/d;'\
 's/<a href="[^"]*\/ghost\/editor\/[^>]*>[^>]*>//g'\
-	'{}' \;
+	< <(find "${STATIC_PATH}" -name "*.html" -type f)
 
 	# fix domain and other issues
 	echo -e "\033[0;32mPatching domain and other issues...\033[0m"
-	find "${STATIC_PATH}" -name "*.html" -type f -exec $sed_inplace \
+	sed_inplace_all \
 's|u='${SITEREGX}'|u=\1'${DOMAIN}'|g;'\
 's|url='${SITEREGX}'|url=\1'${DOMAIN}'|g;'\
 's|href="'${SITEREGX}'|href="\1'${DOMAIN}'|g;'\
 's|src="'${SITEREGX}'|src="\1'${DOMAIN}'|g;'\
 's|link>'${SITEREGX}'|link>\1'${DOMAIN}'|g;'\
 's|'${SITEREGX}'|\1'${DOMAIN}'|g'\
-	'{}' \;
-	find "${STATIC_PATH}" -name "*.xsl" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
-	find "${STATIC_PATH}" -name "*.xml" -type f -exec $sed_inplace \
+	< <(find "${STATIC_PATH}" -name "*.html" -type f)
+
+	sed_inplace_all \
+'s|'${SITEREGX}'|\1'${DOMAIN}'|g'\
+	< <(find "${STATIC_PATH}" -name "*.xsl" -type f)
+
+	sed_inplace_all \
 's|href="//'${SITEADDR}'|href=//"'${DOMAIN}'|g;'\
-'s|loc>'${SITEREGX}'|loc>\1'${DOMAIN}'|g'\
-	'{}' \;
+'s|loc>'${SITEREGX}'|loc>\1'${DOMAIN}'|g' \
+	< <(find "${STATIC_PATH}" -name "*.xml" -type f)
 
 	if [[ -d "${STATIC_PATH}/shared" ]]; then
-		find "${STATIC_PATH}/shared" -name "*.js" -type f -exec $sed_inplace 's|//'${SITEADDR}'|//'${DOMAIN}'|g' '{}' \;
+		sed_inplace_all 's|//'${SITEADDR}'|//'${DOMAIN}'|g'\
+		< <(find "${STATIC_PATH}/shared" -name "*.js" -type f)
 	fi
 	if [[ -d "${STATIC_PATH}/rss" ]]; then
-		find "${STATIC_PATH}/rss" -name "*.rss" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
+		sed_inplace_all 's|'${SITEREGX}'|\1'${DOMAIN}'|g'\
+		< <(find "${STATIC_PATH}/rss" -name "*.rss" -type f)
 	fi
 	if [[ -f "${STATIC_PATH}/robots.txt" ]]; then
-		$sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' "${STATIC_PATH}/robots.txt"
+		sed_inplace "${STATIC_PATH}/robots.txt" 's|'${SITEREGX}'|\1'${DOMAIN}'|g'
 	fi
-	find "${STATIC_PATH}" -name "tag-cloud" -type f -exec $sed_inplace 's|'${SITEREGX}'|\1'${DOMAIN}'|g' '{}' \;
+	sed_inplace_all 's|'${SITEREGX}'|\1'${DOMAIN}'|g'\
+	< <(find "${STATIC_PATH}" -name "tag-cloud" -type f)
 
 	echo -e "\033[0;32mRemove .1 files ...\033[0m"
 	find "${STATIC_PATH}" -type f -depth 1 -name '*.?' | grep '[0-9]$' | xargs -L1 -I{} rm '{}'
@@ -194,18 +207,18 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 			##	1) "./index.html" or "index.html" => "${short_name}.html"
 			##	2) "../" ==> "index.html"
 			##	3) "../others ==> "others
-			$sed_inplace -E "s/(\"|')(\\.\\/){0,1}index\\.html/\1${short_name}.html/g; s/(\"|')\\.\\.\\/(\"|')/\1index.html\2/g; s/(\"|')\\.\\.\\//\\1/g" "${name}.html"
+			sed_inplace_E "${name}.html" "s/(\"|')(\\.\\/){0,1}index\\.html/\1${short_name}.html/g; s/(\"|')\\.\\.\\/(\"|')/\1index.html\2/g; s/(\"|')\\.\\.\\//\\1/g"
 			## replace $short_name in all .html files
 			# 	- find "${STATIC_PATH}" -name '*.html' -type f -print0 | xargs -n1 -I{} -0 \
-			# 	-	$sed_inplace -E "s#([\"'/]$short_name)/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\4#g" '{}'
+			# 	-	sed -i'' -Ee "s#([\"'/]$short_name)/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\4#g" '{}'
 			all_posts+=("${short_name}")
 		fi
 	done < <(find "${STATIC_PATH}" -type d -depth 1)
 
 	function join { local IFS="$1"; shift; echo "$*"; }
 	posts=$(join '|' "${all_posts[@]}")
-	find "${STATIC_PATH}" -name '*.html' -type f -print0 | xargs -n1 -I{} -0 \
-		$sed_inplace -E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g" '{}'
+	sed_inplace_all_E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"\
+		< <(find "${STATIC_PATH}" -name '*.html' -type f)
 
 	printf "\n"
 fi
