@@ -10,7 +10,9 @@
 #- Default behavior:
 #-	> monster generate --generate
 #- Dependencies: buster, wget, git, sqlite3, jq, curl, sum
-#- Version: 1.0.4
+#- Version: 1.0.5
+## Author: aimingoo
+## Site: https://github.com/aimingoo/monster
 ##################################################################################################
 
 UPDATE_SITE=false
@@ -24,6 +26,13 @@ if [[ "$1" == "--help" ]]; then
 fi
 if [[ "$1" == "--version" ]]; then
 	head -n 20 $0 | grep -Eie '^#-[ 	]*version[: 	]+' | grep -Eoe '[0-9]+\..*'
+	exit
+fi
+
+## fast commands
+FAST_COMMANDS=("list" "search")
+if [[ " ${FAST_COMMANDS[@]} " =~ " ${1} " ]]; then
+	$0 update --$@
 	exit
 fi
 
@@ -115,7 +124,7 @@ PROTOCOL="https"
 # FORCE=false
 
 ## Other override
-# IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
+# IGNORE_LIST=("archives-post" "about" "author" "page" "rss" "tag" "assets" "content" "shared")
 # ACCEPT_LIST=("assets" "content" "rss" "shared")
 # VERDIR_LIST=("assets" "shared" "public")
 _INITCONFIG

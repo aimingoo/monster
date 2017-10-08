@@ -13,8 +13,8 @@
 #-	- Have a '--domain' parament to set you domain address
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
-#- Dependencies: buster, wget, git
-#- Version: 1.0.4
+#- Dependencies: wget, git
+#- Version: 1.0.5
 ##################################################################################################
 
 ## default setting
@@ -53,7 +53,7 @@ for param; do
 done
 
 ## check dependencies
-if ! dependency buster wget; then
+if ! dependency wget; then
 	echo "The makesite.sh abort."
 	exit
 fi
@@ -94,18 +94,18 @@ fi
 SITEADDR="${SITE##*://}"
 SITEREGX="\\(https*://\\)${SITEADDR}"
 
-## call buster to generate site
+## call wget to generate site
 if [[ "$GENERATE" == "true" ]]; then
-	function wget { $RAW_WGET -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' $@; }
-	# function wget { $RAW_WGET -l inf --adjust-extension $@; }
-	export RAW_WGET=`which wget`
-	export -f wget
+	function wget_buster {
+		wget --recursive --convert-links --page-requisites --no-parent --directory-prefix="${STATIC_PATH}" \
+			--no-host-directories --restrict-file-name=unix $@
+	}
 	# generate static site
 	echo -e "\033[0;32mGenerate your static site...\033[0m"
 	if [[ "$GENERATE_INFO" == "true" ]]; then
-		buster generate --dir="${STATIC_PATH}" --domain="${SITE}"
+		wget_buster -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' "${SITE}"
 	else
-		buster generate --dir="${STATIC_PATH}" --domain="${SITE}" 2>&1 | tee monster.log | cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'; printf "\n"
+		wget_buster -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' "${SITE}" 2>&1 | tee monster.log | cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'; printf "\n"
 		cat monster.log |\
 			grep -Eie '^(FINISHED|Total wall clock time|Downloaded:|Converted links in|--\d+-\d+-\d+ )|failed:|error[ 0-9:]*' |\
 			grep -B1 -Eve '^(--|FINISHED)' | grep --color -Eie 'failed:|error[ 0-9:]*|$'

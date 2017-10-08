@@ -14,6 +14,7 @@ Table of Contents
 * [Performance](#performance)
 * [Manual](#manual)
     * [Base command format](#base-command-format)
+    * [Fast commands](#fast-commands)
     * [Paraments for generate mode](#paraments-for-generate-mode)
     * [Paraments for update mode](#paraments-for-update-mode)
     * [Paraments for preview mode](#paraments-for-preview-mode)
@@ -43,7 +44,8 @@ Table of Contents
 
 # OR, manual install with git
 > git clone https://github.com/aimingoo/monster
-> install monster/libexec/monster.sh /usr/local/bin/monster
+> ln -s "$(pwd)/monster/libexec/monster.sh" /usr/local/bin/monster
+> chmod +x /usr/local/bin/monster
 ```
 
 # Usage
@@ -188,7 +190,20 @@ New files:       74
 > monster <mode> [paraments]
 ```
 
-default mode is `generate`.
+Default mode is `generate`.
+
+### Fast commands
+
+Can fast execute some commands for `update` mode only. Include:
+
+```bash
+## monster update --search "key"
+> monster search "key"
+
+## monster update --list <unment>||<user>
+> monster list user
+> monster list unment
+```
 
 ### Paraments for `generate` mode
 
@@ -200,7 +215,7 @@ default mode is `generate`.
 #
 
 ## Four main steps
-# - GENERATE: full site generate with Buster
+# - GENERATE: full site generate
 --generate
 # - RESET_DOMAIN: reset DOMAIN in static pages, default is true
 --reset-domain
@@ -434,7 +449,7 @@ VERDIR_LIST=("assets" "shared" "public")
 ```
 ### About configuration file `.sqlitedb`
 
-the `.sqlitedb` include database database last `update`. next command to align current database:
+The `.sqlitedb` include database database last `update`. next command to align current database:
 
 ```bash
 > monster update --init
@@ -442,11 +457,12 @@ the `.sqlitedb` include database database last `update`. next command to align c
 
 The file will update when execute `monster update` with `--deploy-now` or `--deploy-only`。
 
-If the file lost or removed, then will `monster update` command will fetch all posts, and you can make/rewrite it by `monster update --init` anytime.
+If the file lost or removed, then `monster update` command would fetch all posts, and you can make/rewrite it by `monster update --init` anytime.
 
 # History
 
 ```
+2017.10.08	v1.0.5 released, kick off buster, and add fast commands
 2017.09.24	hotfix for GNU sed supported and performance test.
 2017.09.23	v1.0.4 released, GNU sed supported, and update manual.
 2017.09.20	v1.0.3 released

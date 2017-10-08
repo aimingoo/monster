@@ -5,7 +5,7 @@
 #- Usage:
 #-	> bash updatesite.sh [--deploy-now] [--sync-removed --reset-domain=false --short-path=false]
 #-	> bash updatesite.sh [--sync-slug | --sync-issue | --list <unment|user>] [--init [checksums]]
-#-	> bash updatesite.sh [--deploy-only | --help | --version]
+#-	> bash updatesite.sh [--deploy-only | --search <key> | --help | --version]
 #- Note:
 #-  > param switch: --paramName=paramValue, default paramValue is true
 #-	- config for "--list unment" and "--sync-issue":
@@ -13,7 +13,7 @@
 #-	- paraments for "--sync-removed":
 #-		--email=xxx     : set author's email of his account
 #- Dependencies: sqlite3, jq, wget, curl, sum
-#- Version: 1.0.4
+#- Version: 1.0.5
 ##################################################################################################
 
 SITE="http://localhost:2368"
@@ -185,6 +185,10 @@ for param; do
 			sqlite3 "${DB}" -header -column 'select id,name,slug,email,status from users'
 			exit
 		fi
+	fi
+	if [[ "$param" == "--search" ]]; then
+		sqlite3 "${DB}" -header -column "select id,slug,created_at,title from posts where markdown like '%$2%'"
+		exit
 	fi
 done
 
@@ -363,7 +367,8 @@ if ! $DEPLOY_ONLY; then
 
 		## other static pages
 		wget_static "${SITE}/favicon.ico" >/dev/null
-		wget_static "${SITE}/rss/index.rss" >/dev/null
+		mkdir -p "${STATIC_PATH}/rss" >/dev/null 2>&1
+		wget_static -O "${STATIC_PATH}/rss/index.rss" "${SITE}/rss/" >/dev/null
 	else
 		echo '> Skiped.'
 	fi
