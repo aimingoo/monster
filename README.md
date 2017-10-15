@@ -33,7 +33,7 @@ Table of Contents
 - Integration git deploy on github.io or your standalone domain
 - Single client, multi site alone configuration
 - Support simplify url(very short slug as title) for Ghost
-- Support multi-author for Ghost
+- Compatible Ghost 0.9x to 1.x, and support multi-author for Ghost
 - Some expert features for git-comments(use github issues as blog comments, ex: gitment)
 
 
@@ -349,6 +349,9 @@ And you can use some direct commands in `update` mode:
 # - user: users for Ghost blog on localhost
 --list <unment|user>]
 
+## search the <key> in content of posts
+--search <key>
+
 ## Show help
 --help
 
@@ -396,13 +399,17 @@ GITHUB_PAGESIZE=100
 
 ## Other
 # - login account in local ghost
+# - (it's a string, or bash format array of string)
 EMAIL="..."
 # - protocol for 'DOMAIN', require when support Gitment and non git pages
 PROTOCOL="https"
 
 
 ## Advertisement token string when your site supported 
+# - a token for advertisenment
 AD_TOKEN=""
+# - enumerate files for advertisenment token
+AD_FILES=("shared/ghost-url.js" "public/ghost-sdk.js")
 
 
 ## Default directory of static files
@@ -441,11 +448,15 @@ FORCE=false
 
 ## Other override
 # - ignore directories in SHORT_PATH step
-IGNORE_LIST=("archives-post" "author" "page" "rss" "tag" "assets" "content" "shared")
+IGNORE_LIST=("author" "page" "rss" "tag" "assets" "content")
 # - accept directories of static file when pick post pages in 'update' mode
-ACCEPT_LIST=("assets" "content" "rss" "shared")
+ACCEPT_LIST=("assets" "content" "rss" "shared" "public")
 # - process directories in PATCH_VERSION step
 VERDIR_LIST=("assets" "shared" "public")
+# - force update pages in 'update' mode when '--force' enabled
+FORCEPAGE_LIST=()
+# - name forced for paged post
+FORCEINDEX_LIST=("about" "archives-post")
 ```
 ### About configuration file `.sqlitedb`
 
@@ -462,9 +473,10 @@ If the file lost or removed, then `monster update` command would fetch all posts
 # History
 
 ```
+2017.10.15	v1.0.6 released, Ghost 1.x and multi-author supported
 2017.10.08	v1.0.5 released, kick off buster, and add fast commands
-2017.09.24	hotfix for GNU sed supported and performance test.
-2017.09.23	v1.0.4 released, GNU sed supported, and update manual.
+2017.09.24	hotfix for GNU sed supported and performance test
+2017.09.23	v1.0.4 released, GNU sed supported, and update manual
 2017.09.20	v1.0.3 released
 2017.09.19	v1.0.2 released, fix minor bugs
 2017.09.17	v1.0.0 released

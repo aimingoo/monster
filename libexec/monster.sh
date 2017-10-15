@@ -10,7 +10,7 @@
 #- Default behavior:
 #-	> monster generate --generate
 #- Dependencies: buster, wget, git, sqlite3, jq, curl, sum
-#- Version: 1.0.5
+#- Version: 1.0.6
 ## Author: aimingoo
 ## Site: https://github.com/aimingoo/monster
 ##################################################################################################
@@ -103,6 +103,7 @@ PROTOCOL="https"
 
 ## Advertisement token string for your site
 # AD_TOKEN=
+# AD_FILES=("shared/ghost-url.js" "public/ghost-sdk.js")
 
 ## Default directory of static files
 # STATIC_PATH="./static"
@@ -114,6 +115,7 @@ PROTOCOL="https"
 # RESET_DOMAIN=true
 # CHECK_STATIC=true
 # SHORT_PATH=false
+# ALWAYS_SYNC_SLUG=false
 
 ## Pick more files
 # PICK_STATIC_TAGCLOUD=false
@@ -124,9 +126,11 @@ PROTOCOL="https"
 # FORCE=false
 
 ## Other override
-# IGNORE_LIST=("archives-post" "about" "author" "page" "rss" "tag" "assets" "content" "shared")
-# ACCEPT_LIST=("assets" "content" "rss" "shared")
+# IGNORE_LIST=("author" "page" "rss" "tag" "assets" "content")
+# ACCEPT_LIST=("assets" "content" "rss" "shared" "public")
 # VERDIR_LIST=("assets" "shared" "public")
+# FORCEPAGE_LIST=()
+# FORCEINDEX_LIST=("about" "archives-post")
 _INITCONFIG
 	echo "File .monster saved."
 

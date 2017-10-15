@@ -14,7 +14,7 @@
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
 #- Dependencies: wget, git
-#- Version: 1.0.5
+#- Version: 1.0.6
 ##################################################################################################
 
 ## default setting
@@ -60,8 +60,11 @@ fi
 
 ## load monster configure
 #	- with other variant override
-IGNORE_LIST=("archives-post" "about" "author" "page" "rss" "tag" "assets" "content" "shared")
+AD_TOKEN=""
+AD_FILES=("shared/ghost-url.js" "public/ghost-sdk.js")
+IGNORE_LIST=("about" "archives-post" "author" "page" "rss" "tag" "assets" "content")
 VERDIR_LIST=("assets" "shared" "public")
+FORCEIINDEX_LIST=()
 if [[ -f "./.monster" ]]; then
 	source ./.monster
 fi
@@ -91,6 +94,24 @@ else
 	function sed_inplace_all_E { while read -r INPLACE_FILE; do sed -i'' -Ee "$*" "$INPLACE_FILE"; done }
 fi
 
+function join {
+	local IFS="$1"; shift; echo "$*"
+}
+
+# arg1: startFrom
+# arg2: allElements
+# ret: nextPostion joinedString
+function join_e {
+	local count=$1; shift $count;
+	local size=0 num=0;
+	for arg; do
+		let size+=${#arg}+1
+		if (( size > 1950 )); then break; fi # the max-size is 2048 of sed's patten
+		let num++
+	done
+	echo $((count+num)) $(join "|" ${@:1:$num})
+}
+
 SITEADDR="${SITE##*://}"
 SITEREGX="\\(https*://\\)${SITEADDR}"
 
@@ -105,7 +126,10 @@ if [[ "$GENERATE" == "true" ]]; then
 	if [[ "$GENERATE_INFO" == "true" ]]; then
 		wget_buster -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' "${SITE}"
 	else
-		wget_buster -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' "${SITE}" 2>&1 | tee monster.log | cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'; printf "\n"
+		wget_buster -l inf --reject-regex='\/amp\/$|\/tag\/.*[^\/]$' "${SITE}" 2>&1 |\
+			tee monster.log |\
+			cut -c 1-70 | while read -r LINE; do printf '> %-73s\r' "$LINE"; done
+		printf "\n"
 		cat monster.log |\
 			grep -Eie '^(FINISHED|Total wall clock time|Downloaded:|Converted links in|--\d+-\d+-\d+ )|failed:|error[ 0-9:]*' |\
 			grep -B1 -Eve '^(--|FINISHED)' | grep --color -Eie 'failed:|error[ 0-9:]*|$'
@@ -171,6 +195,10 @@ if [[ "$RESET_DOMAIN" == "true" ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
 		sed_inplace_all 's|//'${SITEADDR}'|//'${DOMAIN}'|g'\
 		< <(find "${STATIC_PATH}/shared" -name "*.js" -type f)
 	fi
+	if [[ -d "${STATIC_PATH}/public" ]]; then
+		sed_inplace_all 's|//'${SITEADDR}'|//'${DOMAIN}'|g'\
+		< <(find "${STATIC_PATH}/public" -name "*.js" -type f)
+	fi
 	if [[ -d "${STATIC_PATH}/rss" ]]; then
 		sed_inplace_all 's|'${SITEREGX}'|\1'${DOMAIN}'|g'\
 		< <(find "${STATIC_PATH}/rss" -name "*.rss" -type f)
@@ -188,6 +216,7 @@ fi
 # folder to static file
 if [[ "$SHORT_PATH" == "true" ]]; then
 	echo -e "\033[0;32mConvert to short filename ...\033[0m"
+	IGNORE_LIST_STR=" ${IGNORE_LIST[@]} ${FORCEIINDEX_LIST[@]} "
 	total=$(find "${STATIC_PATH}" -type d -depth 1 | wc -l | sed 's/^ *//g')
 	current=0
 	declare -a all_posts
@@ -196,7 +225,7 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 		if [[ -f "$name/index.html" ]]; then
 			## HRADCODE BEGIN
 			short_name=${name##${STATIC_PATH}/}
-			if [[ " ${IGNORE_LIST[@]} " =~ " ${short_name} " ]]; then continue; fi
+			if [[ "${IGNORE_LIST_STR}" =~ " ${short_name} " ]]; then continue; fi
 			## HRADCODE END
 			printf "\r[%${#total}d/%d] Process ${name}.html" ${current} ${total}
 
@@ -215,16 +244,38 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 		fi
 	done < <(find "${STATIC_PATH}" -type d -depth 1)
 
-	function join { local IFS="$1"; shift; echo "$*"; }
-	posts=$(join '|' "${all_posts[@]}")
-	sed_inplace_all_E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"\
-		< <(find "${STATIC_PATH}" -name '*.html' -type f)
-
-	printf "\n"
+	position=1
+	while true; do
+		last_position=$position
+		read -r position posts < <(join_e $position "${all_posts[@]}")
+		echo "> To short post $last_position..$position"
+		sed_inplace_all_E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"\
+			< <(find "${STATIC_PATH}" \( -name '*.html' -o -name 'profile*' \) -type f)
+		printf "\n"
+		if (( position > ${#all_posts[@]} )); then break; fi
+	done
 fi
 
 # check static directory
 if [[ "$CHECK_STATIC" == 'true' ]] && [[ "$SITEADDR" != "$DOMAIN" ]]; then
+	if [[ -n "${AD_TOKEN}" ]]; then
+		EXIST=true  ## aleady exist by last update
+		for (( i=0; i<${#AD_FILES[@]}; i++ )); do
+			if [[ -f "${STATIC_PATH}/${AD_FILES[$i]}" ]]; then
+				EXIST=false  ## has ad_file, so check again
+				if grep -q "${AD_TOKEN}" "${STATIC_PATH}/${AD_FILES[$i]}" 2>/dev/null; then
+					EXIST=true  ## exist token at current proess
+					break
+				fi
+			fi
+		done
+		if ! $EXIST; then
+			echo
+			echo -e "\033[0;32mPlease insert ad token in ghost-url.js or ghost-sdk.js\033[0m"
+			exit 3
+		fi
+	fi
+
 	INVALID=$(find "${STATIC_PATH}" -type f -print0 | xargs -n1 -0 grep -Hl "=[ '\"]*[^/]*/*${SITEADDR}")
 	if [[ -n "$INVALID" ]]; then
 		echo "Include hyperlink point to <$SITEADDR> in next files:"
@@ -243,7 +294,7 @@ if [[ "$DEPLOY_NOW" == 'true' ]]; then
 
 	if ! dependency git; then
 		echo "The makesite.sh abort."
-		exit
+		exit 4
 	fi
 
 	# finished

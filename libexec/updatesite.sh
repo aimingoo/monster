@@ -13,7 +13,7 @@
 #-	- paraments for "--sync-removed":
 #-		--email=xxx     : set author's email of his account
 #- Dependencies: sqlite3, jq, wget, curl, sum
-#- Version: 1.0.5
+#- Version: 1.0.6
 ##################################################################################################
 
 SITE="http://localhost:2368"
@@ -22,7 +22,6 @@ DB=""
 EMAIL=""
 DOMAIN=""
 PROTOCOL="https"
-AD_TOKEN=""
 
 # deploy action
 DEPLOY_NOW=false
@@ -30,6 +29,7 @@ DEPLOY_ONLY=false
 SYNC_REMOVED=false
 SHORT_PATH=true
 RESET_DOMAIN=true
+ALWAYS_SYNC_SLUG=false
 
 # pick more files...
 PICK_STATIC_TAGCLOUD=false
@@ -44,7 +44,9 @@ GITHUB_TOKEN=""
 GITHUB_APIRATE=1
 GITHUB_PAGESIZE=100
 
-ACCEPT_LIST=("assets" "content" "rss" "shared")
+ACCEPT_LIST=("assets" "content" "rss" "shared" "public")
+FORCEPAGE_LIST=()
+FORCEINDEX_LIST=("about" "archives-post")
 
 ## check dependencies
 # - https://gist.github.com/terencewestphal/8b9101e86928c0054a518de262b80a77
@@ -82,6 +84,29 @@ function get_labled_list {
 function get_checksums {
 	find "${STATIC_PATH}" -name '*.html' | xargs -n1 grep -Eoe '"[^"]*?v=[0-9a-f]*"' |\
 			sed 's|\.\./||g; s|\./||g' | sort | uniq | xargs -n1 -I{} curl --silent "${SITE}{}" | sum
+}
+
+## 0.11.x or lowness
+##	- displayUpdateNotification	0.11.11
+##	- databaseVersion	009
+## 1.x or higher
+##	- display_update_notification	1.12.1
+function get_ghost_version {
+	local where_setting='where key in ("displayUpdateNotification", "display_update_notification")'
+	echo $(sqlite3 "${DB}" "select value from settings ${where_setting} limit 1")
+}
+
+function try_sync_slug {
+	where_post='where page=0 and slug not like "_-%"'
+	if [[ -n "$1" ]]; then
+		where_post="${where_post} and slug=\"$@\""
+	fi
+
+	if [[ "$(get_ghost_version)" > "1" ]]; then
+		sqlite3 "${DB}" "update posts set slug = id ${where_post}"
+	else
+		sqlite3 "${DB}" "update posts set slug = author_id || \"-\" || id ${where_post}"
+	fi
 }
 
 ## direct commands or --help
@@ -142,14 +167,13 @@ for param; do
 		exit
 	fi
 	if [[ "$param" == "--sync-slug" ]]; then
-		sqlite3 "${DB}" 'update posts set slug = author_id || "-" || id'
-		echo "Done."
+		try_sync_slug && echo "Done."
 		exit
 	fi
 	if [[ "$param" == "--sync-issue" ]]; then
 		## or check with labels, ex:
 		##	> curl -s 'https://api.github.com/repos/aimingoo/aimingoo.github.io/issues?creator=aimingoo&labels=gitment,1-1725'
-		labled_list=$(get_labled_list)
+		labled_list=" $(get_labled_list) "
 		echo -e "\033[0;32mSync issues ...\033[0m"
 		where_post="where status=\"published\" and visibility=\"public\" and page=0"
 		current=0
@@ -157,7 +181,7 @@ for param; do
 		while read -r slug title; do
 			let current+=1
 			printf "[%${#total}d/%d] Process ${slug}|${title} ...\n" ${current} ${total}
-			if [[ " ${labled_list} " =~ " ${slug} " ]]; then continue; fi
+			if [[ "${labled_list}" =~ " ${slug} " ]]; then continue; fi
 
 			sleep ${GITHUB_APIRATE}
 			curl -s -u "${GITHUB_USER}:${GITHUB_TOKEN}" -H 'Content-Type: application/json'\
@@ -171,11 +195,11 @@ for param; do
 	fi
 	if [[ "$param" == "--list" ]]; then
 		if [[ "$2" == "unment" ]]; then
-			labled_list=$(get_labled_list)
+			labled_list=" $(get_labled_list) "
 			echo -e "\033[0;32mList non gitment posts ...\033[0m"
 			where_post="where status=\"published\" and visibility=\"public\" and page=0"
 			while read -r slug title; do
-				if [[ " ${labled_list} " =~ " ${slug} " ]]; then continue; fi
+				if [[ "${labled_list}" =~ " ${slug} " ]]; then continue; fi
 				echo " -> ${slug}|${title}"
 			done < <(sqlite3 "${DB}" -separator ' ' "select slug, title from posts ${where_post}")
 			echo "Done."
@@ -187,7 +211,12 @@ for param; do
 		fi
 	fi
 	if [[ "$param" == "--search" ]]; then
-		sqlite3 "${DB}" -header -column "select id,slug,created_at,title from posts where markdown like '%$2%'"
+		if [[ "$(get_ghost_version)" > "1" ]]; then
+			where_post="where mobiledoc like '%$2%'"
+		else
+			where_post="where markdown like '%$2%'"
+		fi
+		sqlite3 "${DB}" -header -column "select id,slug,created_at,title from posts ${where_post}"
 		exit
 	fi
 done
@@ -205,7 +234,7 @@ fi
 function wget_static {
 	wget -N -e robots=off --force-html --no-host-directories --force-directories --directory-prefix="${STATIC_PATH}" $@ 2>&1 |\
 		tee -a monster.log |\
-		cut -c 1-70 | xargs -L 1 -I{} printf '\r> %-73s' '{}'
+		cut -c 1-70 | while read -r LINE; do printf '> %-73s\r' "$LINE"; done
 }
 
 function wget_static_deep {
@@ -216,13 +245,27 @@ function join {
 	local IFS="$1"; shift; echo "$*"
 }
 
+# arg1: startFrom
+# arg2: allElements
+# ret: nextPostion joinedString
+function join_e {
+	local count=$1; shift $count;
+	local size=0 num=0;
+	for arg; do
+		let size+=${#arg}+1
+		if (( size > 1950 )); then break; fi # the max-size is 2048 of sed's patten
+		let num++
+	done
+	echo $((count+num)) $(join "|" ${@:1:$num})
+}
+
 function no_paged {
 	return $(sqlite3 "${DB}" "select count(*) from posts where page=1 and slug=\"$1\" and status=\"published\" and visibility=\"public\"")
 }
 
+FORCEINDEX_LIST_STR=" ${FORCEINDEX_LIST[@]} "
 function force_paged_filename {
-	if [[ "about" == "$1" ]] ||\
-	   [[ "archives-post" == "$1" ]]; then
+	if [[ "${FORCEINDEX_LIST_STR}" =~ " $1 " ]]; then
 		mkdir -p "${STATIC_PATH}/$1" >/dev/null 2>&1
 		echo "${STATIC_PATH}/$1/index.html"
 	else
@@ -231,12 +274,29 @@ function force_paged_filename {
 }
 
 ## read db and pick files
+create_ids=()
 if $DEPLOY_ONLY; then
 	if [ ! -d "${STATIC_PATH}" ]; then
 		echo -e "\033[0;32mTry deploy but none '${STATIC_PATH}' directory...\033[0m"
 		exit
 	fi
 else
+	if [[ -n "$update_at" ]]; then ## first only?
+		where_post="where status=\"published\" and visibility=\"public\" and created_at > \"${update_at}\""
+		read -a create_ids < <(sqlite3 "${DB}" "select slug from posts ${where_post} order by created_at" | xargs)
+	fi
+
+	if $ALWAYS_SYNC_SLUG; then
+		echo -e "\033[0;32mTry sync slug for new posts ...\033[0m"
+		if [[ -z "$update_at" ]]; then ## first/full-generate only
+			try_sync_slug  ## sync all once
+		elif (( ${#create_ids[@]} > 0 )); then ## sync one by one
+			for (( i=0; i<${#create_ids[@]}; i++ )); do
+				try_sync_slug "${create_ids[$i]}"
+			done
+		fi
+	fi
+
 	echo -e "\033[0;32mPick updated or new files ...\033[0m"
 	rx_acceptlist=$(join "|" "${ACCEPT_LIST[@]}")
 	where_post="where status=\"published\" and visibility=\"public\" and updated_at > \"${update_at}\""
@@ -260,25 +320,18 @@ if $DEPLOY_ONLY; then
 	checksums=(`get_checksums`)
 else
 	if (( ${#update_ids[@]} > 0 )); then
-		if [[ -n "${AD_TOKEN}" ]] && [[ -f "${STATIC_PATH}/shared/ghost-url.js" ]]; then
-			if [[ $(grep -c -e "${AD_TOKEN}" "${STATIC_PATH}/shared/ghost-url.js") == 0 ]]; then
-				echo -e "\033[0;32mPlease insert ad token in ghost-url.js \033[0m"
-				exit
-			fi
-		fi
-
 		checksums=(`get_checksums`)
 		if [[ "${last_checksums[*]}" == "${checksums[*]}" ]]; then
-			rm -rf "${STATIC_PATH}/assets"
-			rm -rf "${STATIC_PATH}/shared"
+			rm -rf "${STATIC_PATH}/assets" 2>/dev/null
+			rm -rf "${STATIC_PATH}/shared" 2>/dev/null
+			rm -rf "${STATIC_PATH}/public" 2>/dev/null
 		fi
 	fi
 fi
 
 ## check files and pick more...
 if ! $DEPLOY_ONLY; then
-	where_post="where status=\"published\" and visibility=\"public\" and created_at > \"${update_at}\""
-	read -a create_ids < <(sqlite3 "${DB}" "select slug from posts ${where_post} order by created_at" | xargs)
+	## skip re-pick aside links for new files when full generate
 	if (( ${#create_ids[@]} > 0 )); then
 		## re-pick last post at last time
 		wget_static --adjust-extension "${SITE}/${last_create_id}"
@@ -321,16 +374,27 @@ if ! $DEPLOY_ONLY; then
 	create_new=false
 	where_user="where id in (select distinct author_id from posts where\
 		status=\"published\" and visibility=\"public\" and page=0 and created_at > \"${update_at}\" order by created_at)"
-	if $SYNC_REMOVED; then
-		where_user="where email=\"${EMAIL}\""
-	fi
-	while read -r author_id; do
-		create_new=true
-		if $PICK_STATIC_PROFILE; then
-			wget_static "${SITE}/profile-${author_id}"
+	function pick_author_pages {
+		if [[ -n "$1" ]]; then
+			where_user="where email=\"${1}\"" ## reset where_user, chekc author's email
 		fi
-		wget_static_deep --accept-regex='/author/[^/]*/page/[^/]*/$' "${SITE}/author/${author_id}/"
-	done < <(sqlite3 "${DB}" "select slug from users ${where_user}")
+		while read -r author_id; do
+			create_new=true
+			if $PICK_STATIC_PROFILE; then
+				wget_static "${SITE}/profile-${author_id}"
+			fi
+			wget_static_deep --accept-regex='/author/[^/]*/page/[^/]*/$' "${SITE}/author/${author_id}/"
+		done < <(sqlite3 "${DB}" "select slug from users ${where_user}")	
+	}
+	if ! $SYNC_REMOVED; then
+		pick_author_pages # pick and dont check email
+	else
+		if (( ${#EMAIL[@]} > 1 )); then
+			for AUTHOR in ${EMAIL[@]}; do pick_author_pages "$AUTHOR"; done
+		else
+			pick_author_pages "$EMAIL"
+		fi
+	fi
 
 	## pick all index pages
 	if $create_new || $FORCE; then
@@ -362,6 +426,12 @@ if ! $DEPLOY_ONLY; then
 			wget_static "${SITE}/profile-site"
 		fi
 
+		if $FORCE; then
+			for (( i=0; i<${#FORCEPAGE_LIST[@]}; i++ )); do
+				wget_static "${SITE}/${FORCEPAGE_LIST[$i]}"
+			done
+		fi
+
 		# index and home pages
 		wget_static_deep --accept-regex='/page/[^/]*/$' "${SITE}/"
 
@@ -380,12 +450,19 @@ if ! $DEPLOY_ONLY; then
 
 		# total=$(sqlite3 "${DB}" "select count(*) from posts")
 		where_post="where status=\"published\" and visibility=\"public\" and page=0"
-		posts=$(join "|" $(sqlite3 "${DB}" "select slug from posts ${where_post}" | xargs))
-		while read -r INPLACE_FILE; do
-			printf '\r> %-73s' "$INPLACE_FILE"
-			sed_inplace_E "$INPLACE_FILE" "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"
-		done < <(find "${STATIC_PATH}" -name '*.html' -type f)
-		printf "\n"
+		all_posts=($(sqlite3 "${DB}" "select slug from posts ${where_post}" | xargs))
+		position=1
+		while true; do
+			last_position=$position
+			read -r position posts < <(join_e $position "${all_posts[@]}")
+			echo "> To short post $last_position..$position"
+			while read -r INPLACE_FILE; do
+				printf '\r> %-73s' "$INPLACE_FILE"
+				sed_inplace_E "$INPLACE_FILE" "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"
+			done < <(find "${STATIC_PATH}" \( -name '*.html' -o -name 'profile*' \) -type f)
+			printf "\n"
+			if (( position > ${#all_posts[@]} )); then break; fi
+		done
 	fi
 fi
 
@@ -398,6 +475,7 @@ fi
 if $DEPLOY_NOW || $RESET_DOMAIN; then
 	bash "$(dirname $0)/makesite.sh" --site="${SITE}" --domain="${DOMAIN:-${GITHUB_USER}.github.io}" --static-path="${STATIC_PATH}" \
 		--generate=false --pick-sitemap=false --reset-domain="${RESET_DOMAIN}" --short-path=false --deploy-now="${DEPLOY_NOW}"
+	if [[ "$?" != "0" ]]; then exit; fi
 
 	if $DEPLOY_NOW; then
 		## init again, '.sqlitedb' saved
