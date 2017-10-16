@@ -206,7 +206,7 @@ for param; do
 			exit
 		fi
 		if [[ "$2" == "user" ]]; then
-			sqlite3 "${DB}" -header -column 'select id,name,slug,email,status from users'
+			printf ".width %d\nselect id,name,slug,email,status from users;" 24 | sqlite3 "${DB}" -header -column
 			exit
 		fi
 	fi

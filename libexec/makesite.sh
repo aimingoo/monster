@@ -64,7 +64,7 @@ AD_TOKEN=""
 AD_FILES=("shared/ghost-url.js" "public/ghost-sdk.js")
 IGNORE_LIST=("about" "archives-post" "author" "page" "rss" "tag" "assets" "content")
 VERDIR_LIST=("assets" "shared" "public")
-FORCEIINDEX_LIST=()
+FORCEINDEX_LIST=()
 if [[ -f "./.monster" ]]; then
 	source ./.monster
 fi
@@ -216,7 +216,7 @@ fi
 # folder to static file
 if [[ "$SHORT_PATH" == "true" ]]; then
 	echo -e "\033[0;32mConvert to short filename ...\033[0m"
-	IGNORE_LIST_STR=" ${IGNORE_LIST[@]} ${FORCEIINDEX_LIST[@]} "
+	IGNORE_LIST_STR=" ${IGNORE_LIST[@]} ${FORCEINDEX_LIST[@]} "
 	total=$(find "${STATIC_PATH}" -type d -depth 1 | wc -l | sed 's/^ *//g')
 	current=0
 	declare -a all_posts
