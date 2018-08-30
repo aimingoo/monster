@@ -473,6 +473,7 @@ If the file lost or removed, then `monster update` command would fetch all posts
 # History
 
 ```
+2018.08.30	v1.0.8 released, Update for homebrew repo
 2017.10.16	v1.0.7 released, Support list long userId
 2017.10.15	v1.0.6 released, Ghost 1.x and multi-author supported
 2017.10.08	v1.0.5 released, kick off buster, and add fast commands

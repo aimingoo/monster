@@ -13,7 +13,7 @@
 #-	- paraments for "--sync-removed":
 #-		--email=xxx     : set author's email of his account
 #- Dependencies: sqlite3, jq, wget, curl, sum
-#- Version: 1.0.6
+#- Version: 1.0.7
 ##################################################################################################
 
 SITE="http://localhost:2368"
@@ -458,7 +458,7 @@ if ! $DEPLOY_ONLY; then
 			echo "> To short post $last_position..$position"
 			while read -r INPLACE_FILE; do
 				printf '\r> %-73s' "$INPLACE_FILE"
-				sed_inplace_E "$INPLACE_FILE" "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"
+				sed_inplace_E "$INPLACE_FILE" "s#([\"\'/](${posts}))(\.[0-9]*)*(/index\\.html|/*)([\"\'\\?\\#\s>])#\\1.html\\5#g"
 			done < <(find "${STATIC_PATH}" \( -name '*.html' -o -name 'profile*' \) -type f)
 			printf "\n"
 			if (( position > ${#all_posts[@]} )); then break; fi

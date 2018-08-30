@@ -14,7 +14,7 @@
 #-	- Have a '--generate-info' sub-option for '--generate' to show more
 #-	- By default(all options off), the script will check files in ./static/
 #- Dependencies: wget, git
-#- Version: 1.0.6
+#- Version: 1.0.7
 ##################################################################################################
 
 ## default setting
@@ -249,7 +249,7 @@ if [[ "$SHORT_PATH" == "true" ]]; then
 		last_position=$position
 		read -r position posts < <(join_e $position "${all_posts[@]}")
 		echo "> To short post $last_position..$position"
-		sed_inplace_all_E "s#([\"'/](${posts}))/*((\.[0-9])*(['\"/])|index\\.html)#\\1.html\\5#g"\
+		sed_inplace_all_E "s#([\"\'/](${posts}))(\.[0-9]*)*(/index\\.html|/*)([\"\'\\?\\#\s>])#\\1.html\\5#g"\
 			< <(find "${STATIC_PATH}" \( -name '*.html' -o -name 'profile*' \) -type f)
 		printf "\n"
 		if (( position > ${#all_posts[@]} )); then break; fi

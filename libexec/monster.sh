@@ -9,8 +9,8 @@
 #-	> monster update --deploy-now
 #- Default behavior:
 #-	> monster generate --generate
-#- Dependencies: buster, wget, git, sqlite3, jq, curl, sum
-#- Version: 1.0.6
+#- Dependencies: wget, git, sqlite3, jq, curl, sum
+#- Version: 1.0.7
 ## Author: aimingoo
 ## Site: https://github.com/aimingoo/monster
 ##################################################################################################
